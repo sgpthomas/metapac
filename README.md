@@ -163,6 +163,7 @@ for additional backends are always welcome!
 | [`pnpm`](#pnpm)       |
 | [`scoop`](#scoop)     |
 | [`snap`](#snap)       |
+| [`toolbox`](#toolbox) |
 | [`uv`](#uv)           |
 | [`vscode`](#vscode)   |
 | [`winget`](#winget)   |
@@ -261,6 +262,12 @@ your group files. See
 ### snap
 
 Standard usage.
+
+### toolbox
+
+Amazon's internal [Builder Toolbox](https://builderhub.corp.amazon.com/docs/builder-toolbox/)
+CLI (`toolbox`). Requires Midway authentication at runtime. There is no repo
+concept and no explicit/implicit package distinction.
 
 ### uv
 

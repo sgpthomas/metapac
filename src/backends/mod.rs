@@ -13,6 +13,7 @@ pub mod pipx;
 pub mod pnpm;
 pub mod scoop;
 pub mod snap;
+pub mod toolbox;
 pub mod uv;
 pub mod vscode;
 pub mod winget;
@@ -41,6 +42,7 @@ macro_rules! apply_backends {
         (Pnpm, pnpm),
         (Scoop, scoop),
         (Snap, snap),
+        (Toolbox, toolbox),
         (Uv, uv),
         (VsCode, vscode),
         (WinGet, winget),

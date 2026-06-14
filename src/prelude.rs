@@ -18,6 +18,7 @@ pub use crate::backends::pipx::{Pipx, PipxPackageOptions};
 pub use crate::backends::pnpm::{Pnpm, PnpmPackageOptions};
 pub use crate::backends::scoop::{Scoop, ScoopPackageOptions};
 pub use crate::backends::snap::{Snap, SnapPackageOptions};
+pub use crate::backends::toolbox::{Toolbox, ToolboxPackageOptions};
 pub use crate::backends::uv::{Uv, UvPackageOptions};
 pub use crate::backends::vscode::{VsCode, VsCodeConfig, VsCodePackageOptions};
 pub use crate::backends::winget::{WinGet, WinGetPackageOptions};
