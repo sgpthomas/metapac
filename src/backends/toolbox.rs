@@ -58,21 +58,31 @@ impl Backend for Toolbox {
     fn install_packages(
         packages: &BTreeMap<String, Self::PackageOptions>,
         _: bool,
-        _: &Self::Config,
+        config: &Self::Config,
     ) -> Result<()> {
-        if !packages.is_empty() {
-            run_command(
-                ["toolbox", "install"]
-                    .into_iter()
-                    .chain(packages.keys().map(String::as_str)),
-                Perms::Same,
-            )?;
+        if packages.is_empty() {
+            return Ok(());
         }
-
-        Ok(())
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox package install");
+            return Ok(());
+        }
+        run_command(
+            ["toolbox", "install"]
+                .into_iter()
+                .chain(packages.keys().map(String::as_str)),
+            Perms::Same,
+        )
     }
 
-    fn uninstall_packages(packages: &BTreeSet<String>, _: bool, _: &Self::Config) -> Result<()> {
+    fn uninstall_packages(packages: &BTreeSet<String>, _: bool, config: &Self::Config) -> Result<()> {
+        if packages.is_empty() {
+            return Ok(());
+        }
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox package uninstall");
+            return Ok(());
+        }
         for package in packages {
             run_command(["toolbox", "uninstall", package.as_str()], Perms::Same)?;
         }
@@ -80,7 +90,14 @@ impl Backend for Toolbox {
         Ok(())
     }
 
-    fn update_packages(packages: &BTreeSet<String>, _: bool, _: &Self::Config) -> Result<()> {
+    fn update_packages(packages: &BTreeSet<String>, _: bool, config: &Self::Config) -> Result<()> {
+        if packages.is_empty() {
+            return Ok(());
+        }
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox package update");
+            return Ok(());
+        }
         for package in packages {
             run_command(["toolbox", "update", package.as_str()], Perms::Same)?;
         }
@@ -88,7 +105,11 @@ impl Backend for Toolbox {
         Ok(())
     }
 
-    fn update_all_packages(_: bool, _: &Self::Config) -> Result<()> {
+    fn update_all_packages(_: bool, config: &Self::Config) -> Result<()> {
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox update");
+            return Ok(());
+        }
         run_command(["toolbox", "update"], Perms::Same)
     }
 
@@ -123,6 +144,10 @@ impl Backend for Toolbox {
     fn version(_: &Self::Config) -> Result<String> {
         run_command_for_stdout(["toolbox", "--version"], Perms::Same, StdErr::Show)
     }
+}
+
+fn toolbox_available(config: &ToolboxConfig) -> bool {
+    Toolbox::version(config).is_ok()
 }
 
 fn parse_installed(output: &str) -> BTreeSet<String> {
