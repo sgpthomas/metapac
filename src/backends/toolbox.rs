@@ -67,12 +67,15 @@ impl Backend for Toolbox {
             log::warn!("toolbox is not installed; skipping toolbox package install");
             return Ok(());
         }
-        run_command(
-            ["toolbox", "install"]
-                .into_iter()
-                .chain(packages.keys().map(String::as_str)),
-            Perms::Same,
-        )
+        // Install one at a time so a missing/unknown package doesn't abort the
+        // rest. `toolbox install` exits 1 if any package in a batch is not found,
+        // even when other packages in that batch succeed.
+        for package in packages.keys() {
+            if let Err(e) = run_command(["toolbox", "install", package.as_str()], Perms::Same) {
+                log::warn!("toolbox: failed to install {package}: {e}");
+            }
+        }
+        Ok(())
     }
 
     fn uninstall_packages(packages: &BTreeSet<String>, _: bool, config: &Self::Config) -> Result<()> {
@@ -175,7 +178,7 @@ Tool                       Current Version   Released (UTC)
 ada                        1.0.202218.0      2026-05-27 15:19
 cr                         1.0.216341.0      2026-06-10 01:05
 
-You can check for updates with `toolbox update`.
+You can check for updates by running `toolbox update --check`.
 ";
 
         let parsed = parse_installed(output);
