@@ -20,7 +20,10 @@ pub struct ToolboxPackageOptions {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ToolboxRepoOptions {}
+pub struct ToolboxRepoOptions {
+    #[serde(default)]
+    role_arn: Option<String>,
+}
 
 impl Backend for Toolbox {
     type Config = ToolboxConfig;
@@ -120,28 +123,58 @@ impl Backend for Toolbox {
         Ok(())
     }
 
-    fn get_installed_repos(_: &Self::Config) -> Result<BTreeMap<String, Self::RepoOptions>> {
-        Ok(BTreeMap::new())
+    fn get_installed_repos(config: &Self::Config) -> Result<BTreeMap<String, Self::RepoOptions>> {
+        if Self::version(config).is_err() {
+            return Ok(BTreeMap::new());
+        }
+
+        let output =
+            run_command_for_stdout(["toolbox", "registry", "list"], Perms::Same, StdErr::Show)?;
+
+        Ok(parse_registry_locations(&output)
+            .into_iter()
+            .map(|location| (location, Self::RepoOptions::default()))
+            .collect())
     }
 
     fn add_repos(
         repos: &BTreeMap<String, Self::RepoOptions>,
         _: bool,
-        _: &Self::Config,
+        config: &Self::Config,
     ) -> Result<()> {
         if repos.is_empty() {
-            Ok(())
-        } else {
-            Err(eyre!("unimplemented"))
+            return Ok(());
         }
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox registry add");
+            return Ok(());
+        }
+        for (location, options) in repos {
+            run_command(
+                ["toolbox", "registry", "add", location.as_str()]
+                    .into_iter()
+                    .chain(Some("--roleArn").filter(|_| options.role_arn.is_some()))
+                    .chain(options.role_arn.as_deref()),
+                Perms::Same,
+            )?;
+        }
+
+        Ok(())
     }
 
-    fn remove_repos(repos: &BTreeSet<String>, _: bool, _: &Self::Config) -> Result<()> {
+    fn remove_repos(repos: &BTreeSet<String>, _: bool, config: &Self::Config) -> Result<()> {
         if repos.is_empty() {
-            Ok(())
-        } else {
-            Err(eyre!("unimplemented"))
+            return Ok(());
         }
+        if !toolbox_available(config) {
+            log::warn!("toolbox is not installed; skipping toolbox registry remove");
+            return Ok(());
+        }
+        for repo in repos {
+            run_command(["toolbox", "registry", "remove", repo.as_str()], Perms::Same)?;
+        }
+
+        Ok(())
     }
 
     fn version(_: &Self::Config) -> Result<String> {
@@ -166,6 +199,15 @@ fn parse_installed(output: &str) -> BTreeSet<String> {
         .collect()
 }
 
+fn parse_registry_locations(output: &str) -> BTreeSet<String> {
+    output
+        .lines()
+        .flat_map(str::split_whitespace)
+        .filter(|token| token.contains("://"))
+        .map(ToString::to_string)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,6 +228,28 @@ You can check for updates by running `toolbox update --check`.
         assert_eq!(
             parsed,
             ["ada".to_string(), "cr".to_string()].into_iter().collect()
+        );
+    }
+
+    #[test]
+    fn parses_registry_locations() {
+        let output = "\
+Registry                                Location
+--------                                --------
+builder-tools                           s3://buildertoolbox-registry-builder-tools-us-west-2/tools.json
+venue-mcp registry                      s3://buildertoolbox-registry-venue-mcp-us-west-2/tools.json
+";
+
+        let parsed = parse_registry_locations(output);
+
+        assert_eq!(
+            parsed,
+            [
+                "s3://buildertoolbox-registry-builder-tools-us-west-2/tools.json".to_string(),
+                "s3://buildertoolbox-registry-venue-mcp-us-west-2/tools.json".to_string(),
+            ]
+            .into_iter()
+            .collect()
         );
     }
 }
